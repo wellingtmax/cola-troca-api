@@ -1,0 +1,123 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+  FACEBOOK
+  PHONE
+}
+
+enum StickerRarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+model User {
+  id            String        @id @default(uuid())
+  name          String
+  email         String?       @unique
+  phone         String?       @unique
+  passwordHash  String?
+  provider      AuthProvider  @default(LOCAL)
+  avatarUrl     String?
+
+  coins         Int           @default(500)
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  albums        UserAlbum[]
+  stickers      UserSticker[]
+  purchases     Purchase[]
+}
+
+model Album {
+  id            String   @id @default(uuid())
+  themeName     String
+  coverUrl      String
+  price         Float
+  releaseDate   DateTime
+  createdAt     DateTime @default(now())
+
+  stickers      Sticker[]
+  userAlbums    UserAlbum[]
+  purchases     Purchase[]
+}
+
+model Sticker {
+  id            String   @id @default(uuid())
+  albumId       String
+  number        Int
+  name          String
+  rarity        StickerRarity
+  imageUrl      String
+  isSpecial     Boolean @default(false)
+
+  album         Album @relation(fields: [albumId], references: [id])
+
+  users         UserSticker[]
+
+  @@unique([albumId, number])
+}
+
+model Pack {
+  id                String   @id @default(uuid())
+  name              String
+  stickerQuantity   Int
+  price             Float
+  createdAt         DateTime @default(now())
+
+  purchases         Purchase[]
+}
+
+model UserAlbum {
+  id              String   @id @default(uuid())
+  userId          String
+  albumId         String
+  acquiredAt      DateTime @default(now())
+
+  user            User @relation(fields: [userId], references: [id])
+  album           Album @relation(fields: [albumId], references: [id])
+
+  @@unique([userId, albumId])
+}
+
+model UserSticker {
+  id                   String @id @default(uuid())
+  userId               String
+  albumId              String
+  stickerId            String
+
+  quantityOwned        Int @default(1)
+  quantityDuplicate    Int @default(0)
+
+  user                 User @relation(fields: [userId], references: [id])
+  sticker              Sticker @relation(fields: [stickerId], references: [id])
+
+  @@unique([userId, stickerId])
+}
+
+model Purchase {
+  id              String   @id @default(uuid())
+  userId          String
+  albumId         String?
+  packId          String?
+
+  totalValue      Float
+
+  createdAt       DateTime @default(now())
+
+  user            User @relation(fields: [userId], references: [id])
+
+  album           Album? @relation(fields: [albumId], references: [id])
+
+  pack            Pack? @relation(fields: [packId], references: [id])
+}
