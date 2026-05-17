@@ -58,7 +58,7 @@ model Sticker {
   number        Int
   name          String
   rarity        StickerRarity
-  imageUrl      String
+  imageUrl      String  @db.Text
   isSpecial     Boolean @default(false)
 
   album         Album @relation(fields: [albumId], references: [id])
