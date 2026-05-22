@@ -47,27 +47,37 @@ export class CollectionService {
                 albumId,
             },
         });
+        
+        const stickers = album?.stickers.map((sticker) => {
+            const userSticker = userStickers.find(
+                (item) => item.stickerId === sticker.id,
+            );
 
+            return {
+                ...sticker,
 
-        const ownedStickerIds = new Set(
-            userStickers.map((item) => item.stickerId),
-        );
+                owned: !!userSticker,
 
-        const stickers = album?.stickers.map((sticker) => ({
-            ...sticker,
-            owned: ownedStickerIds.has(sticker.id),
-            quantityOwned:
-                userStickers.find((item) => item.stickerId === sticker.id)
-                    ?.quantityOwned ?? 0,
-            quantityDuplicate:
-                userStickers.find((item) => item.stickerId === sticker.id)
-                    ?.quantityDuplicate ?? 0,
-        }));
+                isPlaced: userSticker?.isPlaced ?? false,
+
+                canPlace: !!userSticker && !userSticker.isPlaced,
+
+                quantityOwned: userSticker?.quantityOwned ?? 0,
+
+                quantityDuplicate: userSticker?.quantityDuplicate ?? 0,
+            };
+        });
 
         const totalStickers = album?.stickers.length ?? 0;
-        const ownedTotal = ownedStickerIds.size;
 
-        const progress = totalStickers === 0 ? 0 : Number(((ownedTotal / totalStickers) * 100).toFixed(2));
+        const placedTotal = userStickers.filter(
+            (item) => item.isPlaced,
+        ).length;
+
+        const progress =
+            totalStickers === 0
+                ? 0
+                : Number(((placedTotal / totalStickers) * 100).toFixed(2));
 
         return this.alertService.success(
             'Progresso do álbum encontrado.',
@@ -75,8 +85,8 @@ export class CollectionService {
                 album,
                 progress,
                 totalStickers,
-                ownedTotal,
-                missingTotal: totalStickers - ownedTotal,
+                ownedTotal: placedTotal,
+                missingTotal: totalStickers - placedTotal,
                 stickers,
             },
         );
@@ -129,5 +139,62 @@ export class CollectionService {
             'Figurinhas repetidas encontradas.',
             formattedDuplicates,
         );
+    }
+
+    async placeSticker(
+        userId: string,
+        albumId: string,
+        stickerId: string,
+    ) {
+        const userSticker = await this.prisma.userSticker.findFirst({
+            where: {
+                userId,
+                albumId,
+                stickerId,
+            },
+        });
+
+        if (!userSticker) {
+            return this.alertService.error(
+                'Você ainda não possui essa figurinha.',
+                null,
+            );
+        }
+
+        if (userSticker.isPlaced) {
+            return this.alertService.error(
+                'Essa figurinha já foi colada.',
+                null,
+            );
+        }
+
+        const updatedSticker = await this.prisma.userSticker.update({
+            where: {
+                id: userSticker.id,
+            },
+            data: {
+                isPlaced: true,
+            },
+        });
+
+        return this.alertService.success(
+            'Figurinha colada com sucesso.',
+            updatedSticker,
+        );
+    }
+
+    async contPendingAlbums(userId: string) {
+        const pending = await this.prisma.userSticker.groupBy({
+            by: ['albumId'],
+            where: {
+                userId,
+                isPlaced: false,
+            },
+        });
+
+        return this.alertService.success(
+            'Álbuns com figurinhas pendentes encontrados.',
+            pending.length,
+        )
     }
 }

@@ -11,7 +11,7 @@ export class PrismaService
                 host: 'localhost',
                 port: 3306,
                 user: 'root',
-                password: 'M@x94125',
+                password: '123456',
                 database: 'cola_troca',
                 allowPublicKeyRetrieval: true,
 

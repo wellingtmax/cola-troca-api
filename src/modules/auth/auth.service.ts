@@ -107,6 +107,7 @@ export class AuthService {
       phone: true,
       provider: true,
       avatarUrl: true,
+      nickname: true,
       coins: true,
       createdAt: true,
     },

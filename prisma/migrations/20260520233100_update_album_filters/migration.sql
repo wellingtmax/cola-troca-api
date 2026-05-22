@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE `album` ADD COLUMN `category` VARCHAR(191) NOT NULL DEFAULT 'Geral',
+    ADD COLUMN `collection` VARCHAR(191) NULL,
+    ADD COLUMN `company` VARCHAR(191) NOT NULL DEFAULT 'Geral',
+    ADD COLUMN `isExclusive` BOOLEAN NOT NULL DEFAULT false,
+    ADD COLUMN `isFeatured` BOOLEAN NOT NULL DEFAULT false;

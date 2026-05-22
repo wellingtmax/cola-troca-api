@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE `usersticker` ADD COLUMN `favorite` BOOLEAN NOT NULL DEFAULT false,
+    ADD COLUMN `obtainedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3);
+
+-- AddForeignKey
+ALTER TABLE `UserSticker` ADD CONSTRAINT `UserSticker_albumId_fkey` FOREIGN KEY (`albumId`) REFERENCES `Album`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;

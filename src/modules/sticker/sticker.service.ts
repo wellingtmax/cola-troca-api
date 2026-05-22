@@ -10,7 +10,7 @@ export class StickerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly alertService: AlertService,
-  ) {}
+  ) { }
 
   async create(dto: CreateStickerDto) {
     const album = await this.prisma.album.findUnique({
@@ -55,5 +55,103 @@ export class StickerService {
     });
 
     return this.alertService.success('Figurinhas encontradas.', stickers);
+  }
+
+  async findMyStickers(userId: string) {
+    const stickers = await this.prisma.userSticker.findMany({
+      where: { userId },
+      include: {
+        sticker: true,
+        album: true,
+      },
+      orderBy: {
+        obtainedAt: 'desc',
+      },
+    });
+
+    const formatted = stickers.map((item) => ({
+      id: item.id,
+      stickerId: item.stickerId,
+      albumId: item.albumId,
+
+      number: item.sticker.number,
+      name: item.sticker.name,
+      rarity: item.sticker.rarity,
+      imageUrl: item.sticker.imageUrl,
+      isSpecial: item.sticker.isSpecial,
+
+      albumName: item.album.themeName,
+      albumCover: item.album.coverUrl,
+
+      quantityOwned: item.quantityOwned,
+      quantityDuplicate: item.quantityDuplicate,
+
+      isPlaced: item.isPlaced,
+      favorite: item.favorite,
+      obtainedAt: item.obtainedAt,
+    }));
+
+    return this.alertService.success('Figurinhas encontradas.', formatted);
+  }
+
+  async toggleFavorite(userId: string, userStickerId: string) {
+    const userSticker = await this.prisma.userSticker.findFirst({
+      where: {
+        id: userStickerId,
+        userId,
+      },
+    });
+
+    if (!userSticker) {
+      return this.alertService.error('Figurinha não encontrada.');
+    }
+
+    const updated = await this.prisma.userSticker.update({
+      where: { id: userSticker.id },
+      data: {
+        favorite: !userSticker.favorite,
+      },
+    });
+
+    return this.alertService.success('Favorito atualizado.', updated);
+  }
+
+  async placeSticker(userId:string, userStickerId: string) {
+
+    const userSticker = 
+    await this.prisma.userSticker.findFirst({
+      where: {
+        id: userStickerId,
+        userId,
+      },
+    });
+
+    if (!userSticker) {
+      return this.alertService.error(
+        'Figurinha não encontrada.',
+      );
+    }
+
+    if (userSticker.isPlaced) {
+      return this.alertService.warning(
+        'Essa figurinha ja foi colada.',
+      );
+    }
+
+    const updated = 
+    await this.prisma.userSticker.update({
+      where: {
+        id: userSticker.id,
+      },
+
+      data: {
+        isPlaced: true,
+      },
+    });
+
+    return this.alertService.success(
+      'Figurinha colada com sucesso!',
+      updated,
+    )
   }
 }

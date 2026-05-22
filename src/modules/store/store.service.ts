@@ -12,7 +12,7 @@ export class StoreService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly alertService: AlertService,
-  ) {}
+  ) { }
 
   async buyAlbum(userId: string, albumId: string) {
     const album = await this.prisma.album.findUnique({
@@ -52,31 +52,37 @@ export class StoreService {
 
   async myAlbums(userId: string) {
 
-  const albums = await this.prisma.userAlbum.findMany({
-    where: {
-      userId,
-    },
+    const albums = await this.prisma.userAlbum.findMany({
+      where: {
+        userId,
+      },
 
-    include: {
-      album: true,
-    },
+      include: {
+        album: true,
+      },
 
-    orderBy: {
-      id: 'desc',
-    },
-  });
+      orderBy: {
+        id: 'desc',
+      },
+    });
 
-  const formattedAlbums = albums.map((item) => ({
-    id: item.album.id,
-    themeName: item.album.themeName,
-    coverUrl: item.album.coverUrl,
-    price: item.album.price,
-    releaseDate: item.album.releaseDate,
-  }));
+    const formattedAlbums = albums.map((item) => ({
+      id: item.album.id,
+      themeName: item.album.themeName,
+      coverUrl: item.album.coverUrl,
+      price: item.album.price,
+      releaseDate: item.album.releaseDate,
 
-  return this.alertService.success(
-    'Biblioteca encontrada com sucesso.',
-    formattedAlbums,
-  );
-}
+      company: item.album.company,
+      category: item.album.category,
+      collection: item.album.collection,
+      isFeatured: item.album.isFeatured,
+      isExclusive: item.album.isExclusive,
+    }));
+
+    return this.alertService.success(
+      'Biblioteca encontrada com sucesso.',
+      formattedAlbums,
+    );
+  }
 }
