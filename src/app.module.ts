@@ -9,6 +9,7 @@ import { StickerModule } from './modules/sticker/sticker.module';
 import { PackModule } from './modules/pack/pack.module';
 import { CollectionModule } from './modules/collection/collection.module';
 import { StoreModule } from './modules/store/store.module';
+import { TradeModule } from './modules/trade/trade.module';
 
 import { CommonModule } from './common/common.module';
 
@@ -24,6 +25,7 @@ import { CommonModule } from './common/common.module';
     PackModule,
     CollectionModule,
     StoreModule,
+    TradeModule,
   ],
   
   controllers: [],

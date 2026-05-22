@@ -7,7 +7,7 @@ export class UserService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly alertService: AlertService,
-  ) {}
+  ) { }
 
   async getProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
@@ -153,5 +153,54 @@ export class UserService {
       totalPlaced,
       pendingToPlace,
     });
+  }
+
+  async generateTradeCode(userId: string) {
+
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+
+    if (!user) {
+      return this.alertService.error(
+        'Usuário não encontrado.',
+      );
+    }
+
+    if (user.tradeCode) {
+      return this.alertService.success(
+        'ID já existente.',
+        user.tradeCode,
+      );
+    }
+
+    const totalUsers =
+      await this.prisma.user.count();
+
+    const tradeCode =
+      `C&T#${String(totalUsers + 1).padStart(4, '0')}`;
+
+    const updatedUser =
+      await this.prisma.user.update({
+        where: {
+          id: userId,
+        },
+
+        data: {
+          tradeCode,
+        },
+
+        select: {
+          id: true,
+          tradeCode: true,
+        },
+      });
+
+    return this.alertService.success(
+      'ID gerado com sucesso.',
+      updatedUser.tradeCode,
+    );
   }
 }

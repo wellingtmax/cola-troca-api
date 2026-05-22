@@ -116,15 +116,15 @@ export class StickerService {
     return this.alertService.success('Favorito atualizado.', updated);
   }
 
-  async placeSticker(userId:string, userStickerId: string) {
+  async placeSticker(userId: string, userStickerId: string) {
 
-    const userSticker = 
-    await this.prisma.userSticker.findFirst({
-      where: {
-        id: userStickerId,
-        userId,
-      },
-    });
+    const userSticker =
+      await this.prisma.userSticker.findFirst({
+        where: {
+          id: userStickerId,
+          userId,
+        },
+      });
 
     if (!userSticker) {
       return this.alertService.error(
@@ -138,20 +138,52 @@ export class StickerService {
       );
     }
 
-    const updated = 
-    await this.prisma.userSticker.update({
-      where: {
-        id: userSticker.id,
-      },
+    const updated =
+      await this.prisma.userSticker.update({
+        where: {
+          id: userSticker.id,
+        },
 
+        data: {
+          isPlaced: true,
+        },
+      });
+
+    return this.alertService.success(
+      'Figurinha colada com sucesso!',
+      updated,
+    )
+  }
+
+  async placeAllStickers(userId: string) {
+    const stickers = await this.prisma.userSticker.findMany({
+      where: {
+        userId,
+        isPlaced: false,
+      },
+    });
+
+    if (stickers.length === 0) {
+      return this.alertService.warning(
+        'Nenhuma figurinha pendente.',
+      );
+    }
+
+    const result = await this.prisma.userSticker.updateMany({
+      where: {
+        userId,
+        isPlaced: false,
+      },
       data: {
         isPlaced: true,
       },
     });
 
     return this.alertService.success(
-      'Figurinha colada com sucesso!',
-      updated,
-    )
+      `${result.count} figurinhas coladas com sucesso!`,
+      {
+        total: result.count,
+      },
+    );
   }
 }

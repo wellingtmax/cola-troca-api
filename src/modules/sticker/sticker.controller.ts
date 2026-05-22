@@ -37,7 +37,7 @@ export class StickerController {
 
     @UseGuards(JwtAuthGuard)
     @Patch('favorite/:id')
-    toggçeFavorite(
+    toggleFavorite(
         @Req() req: any,
         @Param('id') id: any,
     ) {
@@ -53,6 +53,14 @@ export class StickerController {
         return this.stickerService.placeSticker(
             req.user.userId,
             id,
+        );
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Patch('place-all')
+    placeAllStickers(@Req() req: any) {
+        return this.stickerService.placeAllStickers(
+            req.user.userId
         );
     }
 }

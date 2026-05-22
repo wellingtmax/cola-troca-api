@@ -43,4 +43,12 @@ export class UserController {
   dashboard(@Req() req: any) {
     return this.userService.dashboard(req.user.userId);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('trade-code')
+  generateTradeCode(@Req() req: any) {
+    return this.userService.generateTradeCode(
+      req.user.userId,
+    )
+  }
 }
