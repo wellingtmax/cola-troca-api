@@ -1,7 +1,7 @@
 import {
-    BadRequestException,
-    Injectable,
-    NotFoundException,
+  BadRequestException,
+  Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 
 import { StickerRarity } from '@prisma/client';
@@ -9,179 +9,257 @@ import { StickerRarity } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AlertService } from '../../common/services/alert.service';
 
-import { OpenPackDto, PackType } from './dto/open-pack.dto';
+import { OpenPackDto } from './dto/open-pack.dto';
 
 @Injectable()
 export class PackService {
-    constructor(
-        private readonly prisma: PrismaService,
-        private readonly alertService: AlertService,
-    ) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly alertService: AlertService,
+  ) {}
 
-    async openPack(userId: string, dto: OpenPackDto) {
-        const user = await this.prisma.user.findUnique({
-            where: {
-                id: userId,
-            },
-        });
+  async findAll() {
+    const packs = await this.prisma.pack.findMany({
+      orderBy: {
+        price: 'asc',
+      },
+    });
 
-        const packPrice = this.getPackPrice(dto.packType);
+    return this.alertService.success('Packs encontrados.', packs);
+  }
 
-        if (!user) {
-            throw new NotFoundException(
-                'Usuário não encontrado.',
-            );
-        }
+  async openPack(userId: string, dto: OpenPackDto) {
+    const pack = await this.prisma.pack.findFirst({
+      where: {
+        type: dto.packType,
+      },
+    });
 
-        if (user.coins < packPrice) {
-            throw new BadRequestException(
-                'Coins insuficientes.',
-            );
-        }
-
-        const album = await this.prisma.album.findUnique({
-            where: {
-                id: dto.albumId,
-            },
-        });
-
-        if (!album) {
-            throw new BadRequestException('Álbum não encontrado.');
-        }
-
-        let quantity = 5;
-
-        switch (dto.packType) {
-            case PackType.SMALL:
-                quantity = 5;
-                break;
-
-            case PackType.MEDIUM:
-                quantity = 15;
-                break;
-
-            case PackType.LARGE:
-                quantity = 30;
-                break;
-        }
-
-        const stickers = [];
-
-        for (let i = 0; i < quantity; i++) {
-            const rarity = this.generateRarity(dto.packType);
-
-            const possibleStickers = await this.prisma.sticker.findMany({
-                where: {
-                    albumId: dto.albumId,
-                    rarity,
-                },
-            });
-
-            if (!possibleStickers.length) {
-                continue;
-            }
-
-            const randomIndex = Math.floor(Math.random() * possibleStickers.length);
-
-            const sticker = possibleStickers[randomIndex];
-
-            stickers.push(sticker);
-
-            const existingUserSticker = await this.prisma.userSticker.findFirst({
-                where: {
-                    userId,
-                    stickerId: sticker.id,
-                },
-            });
-
-            if (existingUserSticker) {
-                await this.prisma.userSticker.update({
-                    where: {
-                        id: existingUserSticker.id,
-                    },
-                    data: {
-                        quantityOwned: {
-                            increment: 1,
-                        },
-                        quantityDuplicate: {
-                            increment: 1,
-                        },
-                    },
-                });
-            } else {
-                await this.prisma.userSticker.create({
-                    data: {
-                        userId,
-                        albumId: dto.albumId,
-                        stickerId: sticker.id,
-                        quantityOwned: 1,
-                        quantityDuplicate: 0,
-                    },
-                });
-            }
-        }
-
-        const updatedUser = await this.prisma.user.update({
-            where: {
-                id: userId,
-            },
-            data: {
-                coins: {
-                    decrement: packPrice,
-                },
-            },
-            select: {
-                id: true,
-                coins: true,
-            },
-        });
-
-        return this.alertService.success('Pacote aberto com sucesso!', {
-            total: stickers.length,
-            stickers,
-            coinsSpent: packPrice,
-            coinsRemaining: updatedUser.coins,
-        });
+    if (!pack) {
+      throw new NotFoundException('Pack não encontrado.');
     }
 
-    private generateRarity(packType: PackType | 'FREE'): StickerRarity {
-        const random = Math.random() * 100;
-
-        if (packType === 'FREE') {
-            if (random <= 90) return StickerRarity.COMMON;
-            if (random <= 99) return StickerRarity.RARE;
-            return StickerRarity.EPIC;
-        }
-
-        if (packType === PackType.SMALL) {
-            if (random <= 80) return StickerRarity.COMMON;
-            if (random <= 95) return StickerRarity.RARE;
-            if (random <= 99) return StickerRarity.EPIC;
-            return StickerRarity.LEGENDARY;
-        }
-
-        if (packType === PackType.MEDIUM) {
-            if (random <= 55) return StickerRarity.COMMON;
-            if (random <= 85) return StickerRarity.RARE;
-            if (random <= 97) return StickerRarity.EPIC;
-            return StickerRarity.LEGENDARY;
-        }
-
-        if (packType === PackType.LARGE) {
-            if (random <= 35) return StickerRarity.COMMON;
-            if (random <= 75) return StickerRarity.RARE;
-            if (random <= 95) return StickerRarity.EPIC;
-            return StickerRarity.LEGENDARY;
-        }
-
-        return StickerRarity.COMMON;
+    if (pack.dailyLimit) {
+      throw new BadRequestException(
+        'Este pack deve ser aberto pela rota de pack grátis.',
+      );
     }
 
-    private getPackPrice(packType: PackType): number {
-        if (packType === PackType.SMALL) return 50;
-        if (packType === PackType.MEDIUM) return 500;
-        if (packType === PackType.LARGE) return 1000;
+    return this.openPackByRules(userId, dto.albumId, pack);
+  }
 
-        return 0;
+  async openFreePack(userId: string, albumId: string) {
+    const pack = await this.prisma.pack.findFirst({
+      where: {
+        type: 'FREE',
+      },
+    });
+
+    if (!pack) {
+      throw new NotFoundException('Pack grátis não encontrado.');
     }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const alreadyOpened = await this.prisma.purchase.findFirst({
+      where: {
+        userId,
+        packId: pack.id,
+        createdAt: {
+          gte: today,
+        },
+      },
+    });
+
+    if (alreadyOpened) {
+      throw new BadRequestException(
+        'Você já abriu seu pack grátis hoje.',
+      );
+    }
+
+    return this.openPackByRules(userId, albumId, pack);
+  }
+
+  private async openPackByRules(
+    userId: string,
+    albumId: string,
+    pack: any,
+  ) {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        id: userId,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    if (user.coins < pack.price) {
+      throw new BadRequestException('Coins insuficientes.');
+    }
+
+    const album = await this.prisma.album.findFirst({
+      where: {
+        id: albumId,
+      },
+    });
+
+    if (!album) {
+      throw new BadRequestException('Álbum não encontrado.');
+    }
+
+    const rarities = this.generatePackRarities(pack);
+
+    const drawnStickers = [];
+
+    for (const rarity of rarities) {
+      const sticker = await this.drawStickerByRarity(
+        albumId,
+        rarity,
+      );
+
+      if (!sticker) {
+        continue;
+      }
+
+      drawnStickers.push(sticker);
+
+      await this.addStickerToUser(
+        userId,
+        albumId,
+        sticker.id,
+      );
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        coins: {
+          decrement: pack.price,
+        },
+      },
+      select: {
+        id: true,
+        coins: true,
+      },
+    });
+
+    await this.prisma.purchase.create({
+      data: {
+        userId,
+        packId: pack.id,
+        totalValue: pack.price,
+      },
+    });
+
+    return this.alertService.success('Pacote aberto com sucesso!', {
+      pack,
+      total: drawnStickers.length,
+      stickers: drawnStickers,
+      coinsSpent: pack.price,
+      coinsRemaining: updatedUser.coins,
+    });
+  }
+
+  private generatePackRarities(pack: any): StickerRarity[] {
+    const rarities: StickerRarity[] = [];
+
+    if (pack.guaranteedLegendary) {
+      rarities.push(StickerRarity.LEGENDARY);
+    }
+
+    while (rarities.length < pack.stickerQuantity) {
+      rarities.push(this.drawRarity(pack));
+    }
+
+    return rarities;
+  }
+
+  private drawRarity(pack: any): StickerRarity {
+    const random = Math.random() * 100;
+
+    if (random < pack.legendaryChance) {
+      return StickerRarity.LEGENDARY;
+    }
+
+    if (random < pack.legendaryChance + pack.epicChance) {
+      return StickerRarity.EPIC;
+    }
+
+    if (
+      random <
+      pack.legendaryChance + pack.epicChance + pack.rareChance
+    ) {
+      return StickerRarity.RARE;
+    }
+
+    return StickerRarity.COMMON;
+  }
+
+  private async drawStickerByRarity(
+    albumId: string,
+    rarity: StickerRarity,
+  ) {
+    const stickers = await this.prisma.sticker.findMany({
+      where: {
+        albumId,
+        rarity,
+      },
+    });
+
+    if (!stickers.length) {
+      return null;
+    }
+
+    const randomIndex = Math.floor(
+      Math.random() * stickers.length,
+    );
+
+    return stickers[randomIndex];
+  }
+
+  private async addStickerToUser(
+    userId: string,
+    albumId: string,
+    stickerId: string,
+  ) {
+    const existingUserSticker =
+      await this.prisma.userSticker.findFirst({
+        where: {
+          userId,
+          stickerId,
+        },
+      });
+
+    if (existingUserSticker) {
+      return this.prisma.userSticker.update({
+        where: {
+          id: existingUserSticker.id,
+        },
+        data: {
+          quantityOwned: {
+            increment: 1,
+          },
+          quantityDuplicate: {
+            increment: 1,
+          },
+        },
+      });
+    }
+
+    return this.prisma.userSticker.create({
+      data: {
+        userId,
+        albumId,
+        stickerId,
+        quantityOwned: 1,
+        quantityDuplicate: 0,
+        isPlaced: false,
+      },
+    });
+  }
 }

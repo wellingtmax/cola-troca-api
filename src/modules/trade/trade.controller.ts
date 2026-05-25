@@ -2,19 +2,17 @@ import {
   Body,
   Controller,
   Get,
+  Param,
+  Patch,
   Post,
   Req,
   UseGuards,
-  Param,
 } from '@nestjs/common';
 
-import { JwtAuthGuard }
-  from '../auth/guards/jwt-auth.guard';
-
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TradeService } from './trade.service';
-
-import { CreateTradeDto }
-  from './dto/create-trade.dto';
+import { CreateTradeDto } from './dto/create-trade.dto';
+import { CounterTradeDto } from './dto/counter-trade.dto';
 
 @Controller('trades')
 export class TradeController {
@@ -49,5 +47,55 @@ export class TradeController {
     @Param('tradeCode') tradeCode: string,
   ) {
     return this.tradeService.findUserByTradeCode(tradeCode);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/accept')
+  acceptTrade(
+    @Req() req: any,
+    @Param('id') id: string,
+  ) {
+    return this.tradeService.acceptTrade(
+      req.user.userId,
+      id,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/reject')
+  rejectTrade(
+    @Req() req: any,
+    @Param('id') id:  string,
+  ) {
+    return this.tradeService.rejectTrade(
+      req.user.userId,
+      id,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/cancel')
+  cancelTrade(
+    @Req() req: any,
+    @Param('id') id: string,
+  ) {
+    return this.tradeService.cancelTrade(
+      req.user.userId,
+      id,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/counter')
+  counterTrade(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: CounterTradeDto,
+  ) {
+    return this.tradeService.counterTrade(
+      req.user.userId,
+      id,
+      dto,
+    );
   }
 }

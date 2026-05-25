@@ -105,6 +105,8 @@ export class UserService {
       totalDuplicates,
       totalPlaced,
       pendingToPlace,
+      pendingTrades,
+      pendingFriendRequests,
     ] = await Promise.all([
       this.prisma.user.findUnique({
         where: { id: userId },
@@ -143,6 +145,22 @@ export class UserService {
           isPlaced: false,
         },
       }),
+
+      this.prisma.trade.count({
+        where: {
+          receiverId: userId,
+          status: {
+            in: ['PENDING', 'COUNTERED'],
+          },
+        },
+      }),
+
+      this.prisma.friendRequest.count({
+        where: {
+          receiverId: userId,
+          status: 'PENDING',
+        },
+      }),
     ]);
 
     return this.alertService.success('Dashboard encontrado.', {
@@ -152,7 +170,10 @@ export class UserService {
       totalDuplicates,
       totalPlaced,
       pendingToPlace,
+      pendingTrades,
+      pendingFriendRequests,
     });
+
   }
 
   async generateTradeCode(userId: string) {
@@ -201,6 +222,246 @@ export class UserService {
     return this.alertService.success(
       'ID gerado com sucesso.',
       updatedUser.tradeCode,
+    );
+  }
+
+  async getPublicProfile(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        id: true,
+        name: true,
+        nickname: true,
+        avatarUrl: true,
+        tradeCode: true,
+        bio: true,
+        createdAt: true,
+        lastSeenAt: true,
+      },
+    });
+
+    if (!user) {
+      return this.alertService.error(
+        'Colecionador não encontrado.',
+      );
+    }
+
+    const [
+      totalAlbums,
+      totalStickers,
+      totalDuplicates,
+      totalFriendsA,
+      totalFriendsB,
+      featuredStickers,
+    ] = await Promise.all([
+      this.prisma.userAlbum.count({
+        where: {
+          userId,
+        },
+      }),
+
+      this.prisma.userSticker.count({
+        where: {
+          userId,
+        },
+      }),
+
+      this.prisma.userSticker.count({
+        where: {
+          userId,
+          quantityDuplicate: {
+            gt: 0,
+          },
+        },
+      }),
+
+      this.prisma.friendship.count({
+        where: {
+          userAId: userId,
+        },
+      }),
+
+      this.prisma.friendship.count({
+        where: {
+          userBId: userId,
+        },
+      }),
+
+      this.prisma.userFeaturedSticker.findMany({
+        where: {
+          userId,
+        },
+        include: {
+          userSticker: {
+            include: {
+              sticker: true,
+              album: true,
+            },
+          },
+        },
+        orderBy: {
+          position: 'asc',
+        },
+        take: 5,
+      }),
+    ]);
+
+    return this.alertService.success(
+      'Perfil público encontrado.',
+      {
+        ...user,
+
+        stats: {
+          totalAlbums,
+          totalStickers,
+          totalDuplicates,
+          totalFriends: totalFriendsA + totalFriendsB,
+        },
+
+        featuredStickers: featuredStickers.map((item) => ({
+          id: item.id,
+          position: item.position,
+
+          sticker: {
+            id: item.userSticker.sticker.id,
+            name: item.userSticker.sticker.name,
+            number: item.userSticker.sticker.number,
+            rarity: item.userSticker.sticker.rarity,
+            imageUrl: item.userSticker.sticker.imageUrl,
+            albumName: item.userSticker.album.themeName,
+          },
+        })),
+      },
+    );
+  }
+
+  async findMyFeaturedStickers(userId: string) {
+    const featured =
+      await this.prisma.userFeaturedSticker.findMany({
+        where: {
+          userId,
+        },
+        include: {
+          userSticker: {
+            include: {
+              sticker: true,
+              album: true,
+            },
+          },
+        },
+        orderBy: {
+          position: 'asc',
+        },
+      });
+
+    const formatted = featured.map((item) => ({
+      id: item.id,
+      position: item.position,
+      userStickerId: item.userStickerId,
+
+      sticker: {
+        id: item.userSticker.sticker.id,
+        name: item.userSticker.sticker.name,
+        number: item.userSticker.sticker.number,
+        rarity: item.userSticker.sticker.rarity,
+        imageUrl: item.userSticker.sticker.imageUrl,
+        albumName: item.userSticker.album.themeName,
+      },
+    }));
+
+    return this.alertService.success(
+      'Figurinhas em destaque encontradas.',
+      formatted,
+    );
+  }
+
+  async updateFeaturedStickers(
+    userId: string,
+    userStickerIds: string[],
+  ) {
+    if (!Array.isArray(userStickerIds)) {
+      throw new BadRequestException(
+        'Lista de figurinhas inválida.',
+      );
+    }
+
+    if (userStickerIds.length > 5) {
+      throw new BadRequestException(
+        'Você pode destacar no máximo 5 figurinhas.',
+      );
+    }
+
+    const uniqueIds = [...new Set(userStickerIds)];
+
+    if (uniqueIds.length !== userStickerIds.length) {
+      throw new BadRequestException(
+        'Não é permitido repetir a mesma figurinha.',
+      );
+    }
+
+    const userStickers =
+      await this.prisma.userSticker.findMany({
+        where: {
+          id: {
+            in: userStickerIds,
+          },
+          userId,
+        },
+      });
+
+    if (userStickers.length !== userStickerIds.length) {
+      throw new BadRequestException(
+        'Uma ou mais figurinhas não pertencem ao usuário.',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.userFeaturedSticker.deleteMany({
+        where: {
+          userId,
+        },
+      });
+
+      for (let index = 0; index < userStickerIds.length; index++) {
+        await tx.userFeaturedSticker.create({
+          data: {
+            userId,
+            userStickerId: userStickerIds[index],
+            position: index + 1,
+          },
+        });
+      }
+    });
+
+    return this.alertService.success(
+      'Figurinhas em destaque atualizadas.',
+      {
+        total: userStickerIds.length,
+      },
+    );
+  }
+
+  async updateLastSeen(userId: string) {
+    const user = await this.prisma.user.update({
+      where: {
+        id: userId,
+      },
+
+      data: {
+        lastSeenAt: new Date(),
+      },
+
+      select: {
+        id: true,
+        lastSeenAt: true,
+      },
+    });
+
+    return this.alertService.success(
+      'Presença atualizada.',
+      user,
     );
   }
 }

@@ -4,6 +4,7 @@ import {
   Get,
   Patch,
   Req,
+  Param,
   UseGuards,
 } from '@nestjs/common';
 
@@ -12,7 +13,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('users')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) { }
 
   @UseGuards(JwtAuthGuard)
   @Get('profile')
@@ -50,5 +51,45 @@ export class UserController {
     return this.userService.generateTradeCode(
       req.user.userId,
     )
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('public/:id')
+  getPublicProfile(
+    @Param('id') id: string,
+  ) {
+    return this.userService.getPublicProfile(id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('featured-stickers')
+  findMyFeaturedStickers(
+    @Req() req: any,
+  ) {
+    return this.userService.findMyFeaturedStickers(
+      req.user.userId,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('featured-stickers')
+  updateFeaturedStickers(
+    @Req() req: any,
+    @Body('userStickerIds') userStickerIds: string[],
+  ) {
+    return this.userService.updateFeaturedStickers(
+      req.user.userId,
+      userStickerIds,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('presence')
+  updateLastSeen(
+    @Req() req: any,
+  ) {
+    return this.userService.updateLastSeen(
+      req.user.userId
+    );
   }
 }

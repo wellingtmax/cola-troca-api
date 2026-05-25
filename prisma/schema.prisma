@@ -15,6 +15,7 @@ enum AuthProvider {
 
 enum TradeStatus {
   PENDING
+  COUNTERED
   ACCEPTED
   REJECTED
   CANCELED
@@ -25,6 +26,35 @@ enum StickerRarity {
   RARE
   EPIC
   LEGENDARY
+}
+
+enum PackType {
+  FREE
+  SMALL
+  MEDIUM
+  LARGE
+}
+
+enum ChatScope {
+  GLOBAL
+  COUNTRY
+}
+
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELED
+}
+
+enum NotificationType {
+  FRIEND_REQUEST
+  CHAT_REPLY
+  CHAT_MENTION
+  TRADE_RECEIVED
+  TRADE_ACCEPTED
+  TRADE_REJECTED
+  SYSTEM
 }
 
 model User {
@@ -65,8 +95,9 @@ model User {
 
   bio String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  lastSeenAt DateTime?
 
   albums    UserAlbum[]
   stickers  UserSticker[]
@@ -74,6 +105,23 @@ model User {
 
   sentTrades     Trade[] @relation("TradeSender")
   receivedTrades Trade[] @relation("TradeReceiver")
+  // ======================================
+  // chat
+  // ======================================
+
+  chatMessages  ChatMessage[]
+  chatLikes     ChatMessageLike[]
+  notifications Notification[]
+
+  dismissedChatInteractions ChatInteractionDismissed[]
+
+  sentFriendRequests     FriendRequest[] @relation("FriendRequestSender")
+  receivedFriendRequests FriendRequest[] @relation("FriendRequestReceiver")
+
+  friendshipsA Friendship[] @relation("FriendshipUserA")
+  friendshipsB Friendship[] @relation("FriendshipUserB")
+
+  featuredStickers UserFeaturedSticker[]
 }
 
 model Album {
@@ -116,11 +164,23 @@ model Sticker {
 }
 
 model Pack {
-  id              String   @id @default(uuid())
-  name            String
+  id   String @id @default(uuid())
+  name String
+
+  type PackType @default(SMALL)
+
   stickerQuantity Int
   price           Float
-  createdAt       DateTime @default(now())
+
+  commonChance    Float @default(100)
+  rareChance      Float @default(0)
+  epicChance      Float @default(0)
+  legendaryChance Float @default(0)
+
+  guaranteedLegendary Boolean @default(false)
+  dailyLimit          Boolean @default(false)
+
+  createdAt DateTime @default(now())
 
   purchases Purchase[]
 }
@@ -161,6 +221,8 @@ model UserSticker {
 
   album Album @relation(fields: [albumId], references: [id])
 
+  featuredByUsers UserFeaturedSticker[]
+
   @@unique([userId, stickerId])
 }
 
@@ -189,6 +251,9 @@ model Trade {
 
   status TradeStatus @default(PENDING)
 
+  senderAccepted   Boolean @default(false)
+  receiverAccepted Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -209,4 +274,138 @@ model TradeItem {
 
   trade       Trade       @relation(fields: [tradeId], references: [id])
   userSticker UserSticker @relation(fields: [userStickerId], references: [id])
+}
+
+model ChatMessage {
+  id String @id @default(uuid())
+
+  userId String
+
+  content String @db.Text
+
+  scope ChatScope @default(GLOBAL)
+
+  country String? @default("BR")
+
+  replyToId String?
+
+  isPinned  Boolean @default(false)
+  isEdited  Boolean @default(false)
+  isDeleted Boolean @default(false)
+
+  imageUrl String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  replyTo ChatMessage?  @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies ChatMessage[] @relation("MessageReplies")
+
+  likes ChatMessageLike[]
+
+  dismissedByUsers ChatInteractionDismissed[]
+
+  @@index([scope])
+  @@index([country])
+  @@index([createdAt])
+}
+
+model ChatMessageLike {
+  id String @id @default(uuid())
+
+  userId    String
+  messageId String
+
+  createdAt DateTime @default(now())
+
+  user    User        @relation(fields: [userId], references: [id])
+  message ChatMessage @relation(fields: [messageId], references: [id])
+
+  @@unique([userId, messageId])
+}
+
+model FriendRequest {
+  id String @id @default(uuid())
+
+  senderId   String
+  receiverId String
+
+  status FriendRequestStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sender   User @relation("FriendRequestSender", fields: [senderId], references: [id])
+  receiver User @relation("FriendRequestReceiver", fields: [receiverId], references: [id])
+
+  @@unique([senderId, receiverId])
+}
+
+model Friendship {
+  id String @id @default(uuid())
+
+  userAId String
+  userBId String
+
+  createdAt DateTime @default(now())
+
+  userA User @relation("FriendshipUserA", fields: [userAId], references: [id])
+  userB User @relation("FriendshipUserB", fields: [userBId], references: [id])
+
+  @@unique([userAId, userBId])
+}
+
+model UserFeaturedSticker {
+  id String @id @default(uuid())
+
+  userId        String
+  userStickerId String
+
+  position Int
+
+  createdAt DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id])
+  userSticker UserSticker @relation(fields: [userStickerId], references: [id])
+
+  @@unique([userId, position])
+}
+
+model ChatInteractionDismissed {
+  id String @id @default(uuid())
+
+  userId    String
+  messageId String
+
+  createdAt DateTime @default(now())
+
+  user    User        @relation(fields: [userId], references: [id])
+  message ChatMessage @relation(fields: [messageId], references: [id])
+
+  @@unique([userId, messageId])
+}
+
+model Notification {
+  id String @id @default(uuid())
+
+  userId String
+
+  type NotificationType
+
+  title   String
+  message String @db.Text
+
+  linkUrl String?
+
+  isRead Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
 }
