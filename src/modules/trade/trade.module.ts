@@ -6,12 +6,14 @@ import { TradeService } from './trade.service';
 import { PrismaModule } from '../../database/prisma.module';
 import { CommonModule } from '../../common/common.module';
 import { NotificationModule } from '../notification/notification.module';
+import { UserLevelModule } from '../user-level/user-level.module';
 
 @Module({
   imports: [
     PrismaModule,
     CommonModule,
     NotificationModule,
+    UserLevelModule,
   ],
 
   controllers: [TradeController],

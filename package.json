@@ -1,43 +1,84 @@
 {
 
   "scripts": {
-  "start": "ts-node src/main.ts",
-  "start:dev": "ts-node-dev --respawn --transpile-only src/main.ts"
-},
+
+    "start": "ts-node src/main.ts",
+
+    "start:dev": "ts-node-dev --respawn --transpile-only src/main.ts"
+
+  },
 
   "dependencies": {
+
     "@nestjs/common": "^11.1.21",
+
     "@nestjs/config": "^4.0.4",
+
     "@nestjs/core": "^11.1.21",
+
     "@nestjs/jwt": "^11.0.2",
+
     "@nestjs/passport": "^11.0.5",
+
     "@nestjs/platform-express": "^11.1.21",
+
     "@nestjs/throttler": "^6.5.0",
-    "@prisma/adapter-mariadb": "^7.8.0",
+
+    "@prisma/adapter-pg": "^7.8.0",
+
     "@prisma/client": "^7.8.0",
+
     "bcrypt": "^6.0.0",
+
     "class-transformer": "^0.5.1",
+
     "class-validator": "^0.15.1",
+
     "cookie-parser": "^1.4.7",
+
     "helmet": "^8.1.0",
+
     "mariadb": "^3.5.2",
+
     "passport": "^0.7.0",
+
     "passport-facebook": "^3.0.0",
+
     "passport-google-oauth20": "^2.0.0",
+
     "passport-jwt": "^4.0.1",
+
     "passport-local": "^1.0.0",
+
+    "pg": "^8.21.0",
+
     "prisma": "^7.8.0",
+
     "reflect-metadata": "^0.2.2",
+
     "rxjs": "^7.8.2"
+
   },
+
   "devDependencies": {
+
     "@nestjs/cli": "^11.0.21",
+
     "@types/bcrypt": "^6.0.0",
+
     "@types/node": "^25.8.0",
+
     "@types/passport-jwt": "^4.0.1",
+
     "@types/passport-local": "^1.0.38",
+
     "ts-node": "^10.9.2",
+
     "ts-node-dev": "^2.0.0",
+
     "typescript": "^6.0.3"
+
   }
+
 }
+

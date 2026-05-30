@@ -10,13 +10,15 @@ import { PrismaService } from '../../database/prisma.service';
 import { AlertService } from '../../common/services/alert.service';
 
 import { OpenPackDto } from './dto/open-pack.dto';
+import { UserLevelService } from '../user-level/user-level.service';
 
 @Injectable()
 export class PackService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly alertService: AlertService,
-  ) {}
+    private readonly userLevelService: UserLevelService,
+  ) { }
 
   async findAll() {
     const packs = await this.prisma.pack.findMany({
@@ -156,12 +158,23 @@ export class PackService {
       },
     });
 
+    const xpReward = this.getPackXpReward(pack.type);
+
+    const xpResult = await this.userLevelService.addXp(
+      userId,
+      xpReward,
+      `OPEN_${pack.type}_PACK`,
+    );
+
     return this.alertService.success('Pacote aberto com sucesso!', {
       pack,
       total: drawnStickers.length,
       stickers: drawnStickers,
       coinsSpent: pack.price,
       coinsRemaining: updatedUser.coins,
+
+      xpEarned: xpReward,
+      levelInfo: xpResult?.levelInfo || null,
     });
   }
 
@@ -261,5 +274,16 @@ export class PackService {
         isPlaced: false,
       },
     });
+  }
+
+  private getPackXpReward(packType: string): number {
+    const rewards: Record<string, number> = {
+      FREE: 5,
+      SMALL: 15,
+      PREMIUM: 60,
+      ELITE: 120,
+    };
+
+    return rewards[packType] || 10;
   }
 }

@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
 }
 
 enum AuthProvider {
@@ -57,6 +57,22 @@ enum NotificationType {
   SYSTEM
 }
 
+enum PaymentProvider {
+  SIMULATED
+  MERCADO_PAGO
+  STRIPE
+  PAGSEGURO
+  ASAAS
+}
+
+enum CoinPurchaseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELED
+  REFUNDED
+}
+
 model User {
   id String @id @default(uuid())
 
@@ -99,9 +115,10 @@ model User {
   updatedAt  DateTime  @updatedAt
   lastSeenAt DateTime?
 
-  albums    UserAlbum[]
-  stickers  UserSticker[]
-  purchases Purchase[]
+  albums        UserAlbum[]
+  stickers      UserSticker[]
+  purchases     Purchase[]
+  coinPurchases CoinPurchase[]
 
   sentTrades     Trade[] @relation("TradeSender")
   receivedTrades Trade[] @relation("TradeReceiver")
@@ -122,12 +139,22 @@ model User {
   friendshipsB Friendship[] @relation("FriendshipUserB")
 
   featuredStickers UserFeaturedSticker[]
+
+  xp Int @default(0)
+
+  level Int @default(1)
+
+  levelTitle String @default("Colecionador Iniciante 1")
+
+  experienceLogs UserExperienceLog[]
+
+  albumRewards UserAlbumReward[]
 }
 
 model Album {
   id String @id @default(uuid())
 
-  themeName String
+  themeName String @unique
   coverUrl  String
   price     Float
 
@@ -145,6 +172,8 @@ model Album {
   stickers     Sticker[]
   userAlbums   UserAlbum[]
   purchases    Purchase[]
+
+  userRewards UserAlbumReward[]
 }
 
 model Sticker {
@@ -183,6 +212,8 @@ model Pack {
   createdAt DateTime @default(now())
 
   purchases Purchase[]
+
+  @@unique([type])
 }
 
 model UserAlbum {
@@ -407,5 +438,80 @@ model Notification {
 
   @@index([userId])
   @@index([isRead])
+  @@index([createdAt])
+}
+
+model UserExperienceLog {
+  id String @id @default(uuid())
+
+  userId String
+
+  points Int
+
+  reason String
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model UserAlbumReward {
+  id String @id @default(uuid())
+
+  userId  String
+  albumId String
+
+  rewardType String
+  reference  String
+
+  xpEarned Int
+
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  album Album @relation(fields: [albumId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, albumId, rewardType, reference])
+  @@index([userId])
+  @@index([albumId])
+}
+
+model CoinPurchase {
+  id String @id @default(uuid())
+
+  userId String
+
+  packageId   String
+  packageName String
+
+  coins Int
+
+  priceCents Int
+
+  provider PaymentProvider @default(SIMULATED)
+
+  status CoinPurchaseStatus @default(PENDING)
+
+  externalReference String @unique
+
+  providerPaymentId String?
+  checkoutUrl       String?
+
+  paidAt     DateTime?
+  canceledAt DateTime?
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([provider])
   @@index([createdAt])
 }

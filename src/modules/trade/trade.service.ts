@@ -9,6 +9,7 @@ import { AlertService } from '../../common/services/alert.service';
 import { CreateTradeDto } from './dto/create-trade.dto';
 import { CounterTradeDto } from './dto/counter-trade.dto';
 import { NotificationService } from '../notification/notification.service';
+import { UserLevelService } from '../user-level/user-level.service';
 
 @Injectable()
 export class TradeService {
@@ -17,6 +18,7 @@ export class TradeService {
     private readonly prisma: PrismaService,
     private readonly alertService: AlertService,
     private readonly notificationService: NotificationService,
+    private readonly userLevelService: UserLevelService
   ) { }
 
   async createTrade(
@@ -41,6 +43,46 @@ export class TradeService {
       throw new BadRequestException(
         'Você não pode trocar com você mesmo.',
       );
+    }
+
+    const offeredStickers =
+      await this.prisma.userSticker.findMany({
+        where: {
+          id: {
+            in: dto.offeredStickerIds,
+          },
+          userId: senderId,
+          quantityDuplicate: {
+            gt: 0,
+          },
+        },
+      });
+
+    if (offeredStickers.length !== dto.offeredStickerIds.length) {
+      throw new BadRequestException(
+        'Uma ou mais figurinhas oferecidas não estão disponíveis para troca.',
+      );
+    }
+
+    if (dto.requestedStickerIds?.length > 0) {
+      const requestedStickers =
+        await this.prisma.userSticker.findMany({
+          where: {
+            id: {
+              in: dto.requestedStickerIds,
+            },
+            userId: receiver.id,
+            quantityDuplicate: {
+              gt: 0,
+            },
+          },
+        });
+
+      if (requestedStickers.length !== dto.requestedStickerIds.length) {
+        throw new BadRequestException(
+          'Uma ou mais figurinhas solicitadas não estão disponíveis para troca.',
+        );
+      }
     }
 
     const trade =
@@ -149,9 +191,20 @@ export class TradeService {
         },
       });
 
+    const formattedTrades = trades.map((trade) => ({
+      ...trade,
+
+      items: trade.items.map((item) => ({
+        ...item,
+
+        isAvailableForTrade:
+          item.userSticker.quantityDuplicate > 0,
+      })),
+    }));
+
     return this.alertService.success(
       'Trocas encontradas.',
-      trades,
+      formattedTrades,
     );
   }
 
@@ -213,6 +266,18 @@ export class TradeService {
       },
     });
 
+    const senderXpResult = await this.userLevelService.addXp(
+      trade.senderId,
+      100,
+      'TRADE_COMPLETED'
+    );
+
+    const receiverXpResult = await this.userLevelService.addXp(
+      trade.receiverId,
+      100,
+      'TRADE_COMPLETED',
+    );
+
     const notifyUserId =
       trade.senderId === userId
         ? trade.receiverId
@@ -227,8 +292,17 @@ export class TradeService {
     );
 
     return this.alertService.success(
-      'Troca aceita e concluída com sucesso.',
-      updated,
+      'Troca aceita com sucesso.',
+      {
+        trade: updated,
+        xpEarned: 100,
+
+        senderLevelInfo: 
+          senderXpResult?.levelInfo || null,
+
+        receiverLevelInfo: 
+          receiverXpResult?.levelInfo || null,
+      },
     );
   }
 
@@ -267,7 +341,7 @@ export class TradeService {
 
         if (ownerSticker.quantityDuplicate <= 0) {
           throw new BadRequestException(
-            'Uma das figurinhas não possui repetida disponível.',
+            'Uma das figurinhas desta troca não possui mais repetida disponível. A proposta precisa ser refeita.',
           );
         }
 

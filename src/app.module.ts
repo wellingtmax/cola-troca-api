@@ -12,6 +12,8 @@ import { StoreModule } from './modules/store/store.module';
 import { TradeModule } from './modules/trade/trade.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { NotificationModule } from './modules/notification/notification.module';
+import { UserLevelModule } from './modules/user-level/user-level.module';
+import { CoinsModule } from './modules/coins/coins.module';
 
 import { CommonModule } from './common/common.module';
 
@@ -30,6 +32,8 @@ import { CommonModule } from './common/common.module';
     TradeModule,
     ChatModule,
     NotificationModule,
+    UserLevelModule,
+    CoinsModule,
   ],
   
   controllers: [],

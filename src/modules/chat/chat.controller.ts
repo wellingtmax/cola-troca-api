@@ -29,11 +29,13 @@ export class ChatController {
         @Req() req: any,
         @Query('page') page?: string,
         @Query('limit') limit?: string,
+        @Query('search') search?: string,
     ) {
         return this.chatService.findGlobalMessages(
             req.user.userId,
             Number(page) || 1,
             Number(limit) || 30,
+            search,
         );
     }
 
